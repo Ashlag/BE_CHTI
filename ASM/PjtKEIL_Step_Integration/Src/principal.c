@@ -2,6 +2,7 @@
 
 #include "DriverJeuLaser.h"
 #include "GestionSon.h"
+#include "Affichage_Valise.h"
 
 extern int DFT_ModuleAuCarre( short int * Signal64ech, char k);
 extern short int LeSignal;
@@ -11,8 +12,13 @@ extern short int LeSignal;
 short int dma_buf[64];
 //tab de tab
 int dftab[64];
-int X; // initier à une valeur
-int scorejoueur[6];
+int X =0x00FFFFFF;// valeur seuil
+int scorejoueur[4];
+int Joueurtemps[4];
+int ctimer=21; // pour prendre le premier tir
+int i=0;
+int Timeravant=0;
+
 void DFT() {
 	for(int i=0; i<64; i++) {
 		 dftab[i]=DFT_ModuleAuCarre(dma_buf,i);
@@ -23,7 +29,57 @@ void DFTtest() {
 		 dftab[1]=DFT_ModuleAuCarre(&LeSignal,1);
 }
 
+void pointComp() {
+		ctimer++;
+		if (dftab[17]>X) {
+			if((ctimer-Joueurtemps[0])>20){ // si 100 ms sont passés soit un tir de laser
+				scorejoueur[0]++;
+				Joueurtemps[0] = ctimer;
+				startSon();
+				Prepare_Afficheur(1,scorejoueur[0]);
+				Mise_A_Jour_Afficheurs_LED();
+			}
+		}
+		if (dftab[18]>X) {
+			if((ctimer-Joueurtemps[1])>20){ // si 100 ms sont passés soit un tir de laser
+			
+				scorejoueur[1]++;
+				Joueurtemps[1] = ctimer;
+				startSon();
+				Prepare_Afficheur(2,scorejoueur[1]);
+				Mise_A_Jour_Afficheurs_LED();
+			}
+		}
+		if (dftab[19]>X) {
+			if((ctimer-Joueurtemps[2])>20){ // si 100 ms sont passés soit un tir de laser
+			
+				scorejoueur[2]++;
+				Joueurtemps[2] = ctimer;
+				startSon();
+				Prepare_Afficheur(3,scorejoueur[2]);
+				Mise_A_Jour_Afficheurs_LED();
+			}
+		}
+		if (dftab[20]>X) {
+			if((ctimer-Joueurtemps[3])>20){ // si 100 ms sont passés soit un tir de laser
+			
+				scorejoueur[3]++;
+				Joueurtemps[3] = ctimer;
+				startSon();
+				Prepare_Afficheur(4,scorejoueur[3]);
+				Mise_A_Jour_Afficheurs_LED();
+			}
+		}
+		if (ctimer>240000) {// toutes les 20 mins
+			ctimer -= 240000;
+			for(int i=0;i<4;i++){
+		
+				Joueurtemps[i]=0;
+			
+		}
+	}
 
+}
 void callbackSystick(void) {
 	Start_DMA1(64);
 
@@ -32,40 +88,23 @@ void callbackSystick(void) {
 	DFT();
 	//Mise_A_Jour_Afficheurs_LED(void)
 		
-		if (dftab[18]>X) {
-			scorejoueur[0]++;
-		}
-		if (dftab[19]>X) {
-			scorejoueur[1]++;
-		}
-		if (dftab[20]>X) {
-			scorejoueur[2]++;
-		}
-		if (dftab[21]>X) {
-			scorejoueur[3]++;
-		}
-		if (dftab[22]>X) {
-			scorejoueur[4]++;
-		}
-		if (dftab[23]>X) {
-			scorejoueur[5]++;
-		}
+	pointComp();
 		
 	// 18 à  23incrémenter le score
 	Stop_DMA1;
 }
 // Chaque 5 s la cible change
-/*
+
 void changecible(){
-	if( TIMERMAINTENANT - TimerAvant > 5s) {
-		PrepareclearLed(i);
+	if( ctimer- Timeravant > 1000) {
+		Prepare_Clear_LED(i);
 		i= i+1 %6;
-		TimerAvant = Timermaintenant;
+		Timeravant = ctimer;
 
 		Choix_Capteur(i);
-		PreparesetLed(i);
-		
-}*/
+		Prepare_Set_LED(i);
+	}
+}
 
 
 
@@ -82,9 +121,15 @@ int main(void)
 	Active_IT_Debordement_Timer( TIM4, 2, callbackSon ); 
 	PWM_Init_ff(TIM3, 3, 720); //-> 10^5 de fréquence
 	GPIO_Configure(GPIOB, 0, OUTPUT, ALT_PPULL);
+	PWM_Set_Value_TIM3_Ch3( (unsigned short int)720); // Clock 
 	CLOCK_Configure();
-	//Init_Affichage();
-	// for i 1 à 4
+	
+	
+	Init_Affichage();
+	for(int i=0;i<4;i++){
+		scorejoueur[i]=0;
+		Joueurtemps[i]=0;
+	}
 	//Prepare_Afficheur(i;0);
 	Init_TimingADC_ActiveADC_ff( ADC1, 72 );
 	Single_Channel_ADC( ADC1, 2 );
@@ -113,7 +158,7 @@ int main(void)
 	
 while	(1)
 	{
-		//changecible()
+		
 	}
 }
 
