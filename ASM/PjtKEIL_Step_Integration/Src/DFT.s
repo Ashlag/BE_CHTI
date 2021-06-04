@@ -1,8 +1,7 @@
 	PRESERVE8
 	THUMB   
-	
-	EXPORT DFT_ModuleAuCarre
 		
+
 ; ====================== zone de réservation de données,  ======================================
 ;Section RAM (read only) :
 	area    mesdata,data,readonly
@@ -21,65 +20,70 @@
 	area    moncode,code,readonly
 ; écrire le code ici		
 
+	export DFT_ModuleAuCarre
+
+;blablabla j'écris mon code
 DFT_ModuleAuCarre proc
-	
-	push  {lr, R4-R10}	
-	
-	;R0 = adresse première composante de Signal puis résultat
-	;R1 = k
-	;R2 = adresse première composante de TabSin
-	;R3 = adresse première composante de TabCos
-	;R4 = valeur de PartieReelle
-	;R5 = valeur de PartieIm
-	;R6 = p
-	;R7 = n
-	;R8 = 
-	;R9 = 
-	
-	ldr R2, =TabSin
-	ldr R3, =TabCos
+	push {LR,R4-R12}
+	;LeSignal => R0
+	;k => R1
+	;R3 : index signal
+	;R4 : intermédiaire, x(n) * cos/sin
+	;R5 : Partie entière
+	;R6 : Partie imaginaire
+	;R7 : calcul de k*index
 
-		
-	mov R7, #0 ;R7 = n = 0
-	mov R4, #0 ;PartieReelle = 0
-	mov R5, #0 ;PartieIm = 0
 
-boucleFor
+
+
+	mov R3,#0
+	mov R5,#0
+	mov R6,#0
+	ldr R9, =TabCos
+	ldr R10, =TabSin
+reset
+	;SON  est un label, pas une variable. Load Son dans un registre, puis se décaler ? 
+	; on mettra Son dans un registre 
+	LDRSH R2,[R0,R3, lsl #1] ; R2 = les différentes valeurs du signal
 	
-	ldrsh R8, [R0, R7, lsl#1] ;R8 = x[n] ;4.12 (16bits)
+
+	mul  R7,R3,R1; k*n
 	
-	mul R6, R1, R7 ;R6 = p = k*n 
-	and R6, #0x3F ;p = p mod 64
+	;Le calcul de cette étape de la somme
+
+	and R7, R7, #63 ;masque et bit à bit, alternative modulo 
 	
-	;Partie Reelle
-	ldrsh R9, [R3, R6, lsl#1] ; R9 = TabCos[p] ;1.15 (16bits)
-	mul R10, R8, R9 ;R10 = x[n] * TabCos[p] ;4.12 * 1.15 = 5.27 (32bits)
-	add R4, R10 ;PartieRéelle = PartieRéelle + R10 = PartieRéelle + x[n] * TabCos[p]
+	LDRSH R8,[R9,R7, lsl #1] ; R8 = valeurs cos
 	
-	;Partie Imaginaire
-	ldrsh R9, [R2, R6, lsl#1] ; R9 = TabSin[p] ;1.15 (16bits)
-	mul R10, R8, R9 ;R10 = x[n] * TabSin[p] ;4.12 * 1.15 = 5.27 (32bits)
-	add R5, R10 ;PartieIm = PartieIm + R10 = PartieIm + x[n] * TabSin[p]
-		
-	add R7, #1 ;n++
+	mul  R4,R2,R8; ; x(n) * cos (Partie Cos(index (R3) * k(R1) %64  /M)
+	asr R4, #1 ;on passe de 5.27 à 6.26
+	adds R5,R4  ; Somme partie entière
 	
-	cmp R7, #64 ;n == 64 ?
-	bne boucleFor ;boucle tant que n != 64
+	LDRSH R8,[R10,R7, lsl #1] ; R8 = valeurs sin
+
+	mul  R4,R2,R8 ; x(n) * sin (Partie Sin(index *k %64  /M) 
+	asr R4, #1 ;mm chose
+	adds R6,R4  ; Somme partie imaginaire |Pour éviter pire cas débordement faire un ASR #2 avant la somme et ASR #14 après
 	
-	;R4*R4 rend un entier sur 64 bits ce qui peut poser problème car notre processeur est sur 32
-	;On décalle à droite R4 (=on se passe des détails arès la virgule) avec als car R4 est signé
-	mov R4, R4, asr#16 ; 5.11 (16bits)
-	mul R4, R4 ;10.22(32bits)
-	;idem avec R5
-	mov R5, R5, asr#16 ;5.11 (16bits)
-	mul R5, R5 ;(32bits) ;10.22(32bits)
+	;Test fin échantillon
+	add R3, #1
+	mov R2, #64
+	cmp R3, R2
+	bne reset
+	;;;;;; Reprendre ICI en pensant au problème de debordement et tester Les sommes en individuelles
+	; carré
+	asr R5,#16 ;on passe de 6.26 à 6.10 (en réalité 22.10)
+	asr R6,#16
+	mul R5,R5
+	mul R6,R6 ; on arrive en 12.20 (en réalité 44.20, mais ça passe t'as vu ?)
+	adds R0,R5,R6
+	;test étape 1
 	
-	add R0, R4, R5 ;RO = PartieReelle^2 + PartieIm^2  ;10.22(32bits)
-	
-	pop {pc, R4-R10}
+	pop {PC,R4-R12}
+
 	endp
 
-	
+
 
 
 ;Section ROM code (read only) :		

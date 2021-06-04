@@ -27,7 +27,16 @@ DFT_ModuleAuCarre proc
 	push {LR,R4-R12}
 	;LeSignal => R0
 	;k => R1
-	mov R3,#0 ;le rôle de notre index
+	;R3 : index signal
+	;R4 : intermédiaire, x(n) * cos/sin
+	;R5 : Partie entière
+	;R6 : Partie imaginaire
+	;R7 : calcul de k*index
+
+
+
+
+	mov R3,#0
 	mov R5,#0
 	mov R6,#0
 	ldr R9, =TabCos
@@ -37,36 +46,20 @@ reset
 	; on mettra Son dans un registre 
 	LDRSH R2,[R0,R3, lsl #1] ; R2 = les différentes valeurs du signal
 	
-	;Incrémentation index
+
 	mul  R7,R3,R1; k*n
-	;;add R3, #1
 	
 	;Le calcul de cette étape de la somme
-	;R3 : index signal
-	;R4 : intermédiaire, x(n) * cos/sin
-	;R5 : Partie entière
-	;R6 : Partie imaginaire
-	;R7 : calcul de k*index
-	
-	
-	;calcul modulo
-	;mov R8, #63
-	;cmp R7, R8
-	;ble modulo
-;modulo2
-	;sub R7, #64
-	;cmp R7, R8
-	;bge modulo2
-;modulo
+
 	and R7, R7, #63 ;masque et bit à bit, alternative modulo 
 	
-	LDRSH R8,[R9,R3, lsl #1] ; R8 = valeurs cos
+	LDRSH R8,[R9,R7, lsl #1] ; R8 = valeurs cos
 	
 	mul  R4,R2,R8; ; x(n) * cos (Partie Cos(index (R3) * k(R1) %64  /M)
 	asr R4, #1 ;on passe de 5.27 à 6.26
 	adds R5,R4  ; Somme partie entière
 	
-	LDRSH R8,[R10,R3, lsl #1] ; R8 = valeurs sin
+	LDRSH R8,[R10,R7, lsl #1] ; R8 = valeurs sin
 
 	mul  R4,R2,R8 ; x(n) * sin (Partie Sin(index *k %64  /M) 
 	asr R4, #1 ;mm chose
